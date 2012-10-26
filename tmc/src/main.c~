@@ -1,0 +1,68 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+#define BUFSIZE 8192 
+
+void usage_exit(void);
+void error_exit(void);
+
+unsigned char buf[BUFSIZE];
+char *dev = "/dev/usbtmc0";
+
+void usage_exit(void) { 
+    fprintf(stderr, "usage: tmc <command>\n");
+    exit(1); 
+}
+void error_exit(void) {
+    perror(dev);
+    exit(1);
+}
+
+int main(int argc, char **argv) {
+
+    int do_read = 0;
+    int charOrDec = 0;  // --> char = 0 --- Dec = 1:
+    char *cmd = NULL;
+    int fd, nb;
+    int counter = 0;
+    
+    argv++;
+    switch (--argc) {
+    	case -1: case 0: usage_exit();
+        case 1: 
+            cmd = *argv;
+            break;
+        case 2:
+            if (!strcmp(*argv, "-rC")) {
+                charOrDec = 0;
+            } else if (!strcmp(*argv, "-rB")) {
+                charOrDec = 1;
+            } else {
+                usage_exit();
+            }
+            cmd = *++argv;
+            do_read = 1;
+    }
+
+    if (-1 == (fd = open(dev, O_RDWR))) error_exit();
+    if (-1 == write(fd, cmd, strlen(cmd))) error_exit();
+    if (do_read) {
+        if (-1 == (nb = read(fd, buf, BUFSIZE))) error_exit();
+        if (!charOrDec) {
+            write(1, buf, nb);
+            write(1, "\n", 1);
+        } else {
+            for (counter = 0; counter <= BUFSIZE; counter++) {
+                if (!buf[counter]) break; 
+                printf("%d ", buf[counter]);
+            }
+        }
+    }
+    return 0;
+}
